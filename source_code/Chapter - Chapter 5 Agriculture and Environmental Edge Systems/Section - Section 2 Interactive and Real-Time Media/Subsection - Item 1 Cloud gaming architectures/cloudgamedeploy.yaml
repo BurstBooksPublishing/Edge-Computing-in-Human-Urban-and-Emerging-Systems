@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudgame-encoder
+spec:
+  replicas: 3                          # scale by load and placement algorithm
+  selector:
+    matchLabels:
+      app: cloudgame-encoder
+  template:
+    metadata:
+      labels:
+        app: cloudgame-encoder
+    spec:
+      nodeSelector:
+        node-role.kubernetes.io/edge: "true"  # schedule to MEC nodes
+      containers:
+        - name: renderer
+          image: myregistry/cloudgame-renderer:stable
+          # Request GPU via nvidia device plugin; requires NVIDIA Container Toolkit
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              cpu: "4"
+              memory: "8Gi"
+          env:
+            - name: MAX_FPS
+              value: "60"
+            - name: ENCODER_PRESET
+              value: "llhq"   # low-latency high-quality NVENC preset
+          ports:
+            - containerPort: 8443   # WebRTC signaling/proxy
+          securityContext:
+            privileged: false
+          # Use host networking or SR-IOV interfaces for predictable latency
+      tolerations:
+        - key: "edge"
+          operator: "Exists"
